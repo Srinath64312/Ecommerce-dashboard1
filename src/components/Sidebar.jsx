@@ -1,56 +1,68 @@
-import React from 'react';
-import { 
-  LayoutDashboard, 
-  BarChart3, 
-  Package, 
-  ShoppingCart, 
-  Users, 
-  Store,
-  AlertTriangle
+import React, { useState } from 'react';
+import {
+  LayoutDashboard, BarChart3, Package, ShoppingCart,
+  Users, Store, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-export default function Sidebar() {
-  const { activeTab, setActiveTab, lowStockProducts } = useApp();
+const NAV_ITEMS = [
+  { id: 'overview',   label: 'Overview',       icon: LayoutDashboard },
+  { id: 'analytics',  label: 'Analytics',      icon: BarChart3 },
+  { id: 'products',   label: 'Products',       icon: Package },
+  { id: 'orders',     label: 'Orders',         icon: ShoppingCart },
+  { id: 'customers',  label: 'Customers',      icon: Users },
+];
 
-  const navItems = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'products', label: 'Products & Inventory', icon: Package, badge: lowStockProducts.length > 0 ? lowStockProducts.length : null },
-    { id: 'orders', label: 'Orders', icon: ShoppingCart },
-    { id: 'customers', label: 'Customers', icon: Users },
-  ];
+export default function Sidebar() {
+  const { activeTab, setActiveTab, lowStockProducts, sidebarCollapsed, setSidebarCollapsed } = useApp();
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-logo">
-        <div className="logo-icon">
-          <Store size={22} />
+    <aside className={`sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
+      {/* Top: logo + toggle */}
+      <div className="sidebar-top">
+        <div className="sidebar-logo">
+          <div className="logo-icon"><Store size={18} /></div>
+          <span className="logo-text">StorePulse</span>
         </div>
-        <span className="logo-text">StorePulse AI</span>
+        <button
+          className="sidebar-toggle"
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
       </div>
 
-      <ul className="nav-list">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
+      {/* Nav items */}
+      <nav className="nav-section">
+        {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+          const isActive = activeTab === id;
+          const hasBadge = id === 'products' && lowStockProducts.length > 0;
           return (
-            <li
-              key={item.id}
-              className={`nav-item ${isActive ? 'active' : ''}`}
-              onClick={() => setActiveTab(item.id)}
+            <div
+              key={id}
+              className={`nav-item${isActive ? ' active' : ''}`}
+              onClick={() => setActiveTab(id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => e.key === 'Enter' && setActiveTab(id)}
             >
-              <Icon size={20} />
-              <span>{item.label}</span>
-              {item.badge && (
-                <span className="badge" title={`${item.badge} low stock item(s)`}>
-                  {item.badge}
-                </span>
+              <span className="nav-icon"><Icon size={18} /></span>
+              <span className="nav-label">{label}</span>
+              {hasBadge && (
+                <span className="nav-badge">{lowStockProducts.length}</span>
               )}
-            </li>
+              {/* Tooltip for collapsed mode */}
+              {sidebarCollapsed && (
+                <div className="nav-tooltip">
+                  {label}
+                  {hasBadge && ` (${lowStockProducts.length})`}
+                </div>
+              )}
+            </div>
           );
         })}
-      </ul>
+      </nav>
     </aside>
   );
 }

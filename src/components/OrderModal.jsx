@@ -1,116 +1,148 @@
 import React from 'react';
-import { X, MapPin, CreditCard, Calendar, User, PackageCheck } from 'lucide-react';
+import { X, MapPin, CreditCard, User, CheckCircle, Clock, Package, Truck, XCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+
+const TIMELINE_STEPS = [
+  { key: 'Pending',    label: 'Pending',    icon: Clock },
+  { key: 'Processing', label: 'Processing', icon: Package },
+  { key: 'Shipped',    label: 'Shipped',    icon: Truck },
+  { key: 'Delivered',  label: 'Delivered',  icon: CheckCircle },
+];
 
 export default function OrderModal() {
   const { orderModal, setOrderModal, updateOrderStatus } = useApp();
   const { isOpen, order } = orderModal;
-
   if (!isOpen || !order) return null;
 
+  const isCancelled = order.status === 'Cancelled';
+  const currentIdx  = TIMELINE_STEPS.findIndex(s => s.key === order.status);
+
+  function close() { setOrderModal({ isOpen: false, order: null }); }
+
+  function handleStatusChange(newStatus) {
+    updateOrderStatus(order.id, newStatus);
+    setOrderModal({ isOpen: true, order: { ...order, status: newStatus } });
+  }
+
   return (
-    <div className="modal-overlay" onClick={() => setOrderModal({ isOpen: false, order: null })}>
-      <div className="modal-content" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={close}>
+      <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+        {/* Header */}
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">Order Details – {order.id}</h2>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Placed on {new Date(order.date).toLocaleString()}
-            </span>
+            <div className="modal-title">Order {order.id}</div>
+            <div className="modal-sub">
+              Placed {new Date(order.date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+              {' · '}{order.itemsCount} item(s)
+            </div>
           </div>
-          <button 
-            className="btn-icon" 
-            style={{ width: '32px', height: '32px' }}
-            onClick={() => setOrderModal({ isOpen: false, order: null })}
-          >
-            <X size={18} />
+          <button className="btn btn-icon" style={{ width: 32, height: 32 }} onClick={close}>
+            <X size={16} />
           </button>
         </div>
 
         <div className="modal-body">
-          {/* Status & Update */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '1rem',
-            backgroundColor: 'var(--bg-primary)',
-            borderRadius: '12px',
-            border: '1px solid var(--border-color)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <PackageCheck size={18} className="text-muted" />
-              <span style={{ fontSize: '0.88rem', fontWeight: '700' }}>Current Status:</span>
-              <span className={`badge-status ${order.status.toLowerCase().replace(' ', '-')}`}>
-                {order.status}
-              </span>
+          {/* Status Timeline */}
+          <div>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+              Order Progress
             </div>
 
-            <select 
+            {isCancelled ? (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.625rem',
+                background: 'var(--danger-bg)', border: '1px solid hsla(0,84%,65%,0.25)',
+                borderRadius: 'var(--radius-md)', padding: '0.875rem 1rem',
+                color: 'var(--danger)', fontWeight: 700
+              }}>
+                <XCircle size={18} /> This order has been cancelled
+              </div>
+            ) : (
+              <div className="order-timeline">
+                {TIMELINE_STEPS.map((step, idx) => {
+                  const Icon = step.icon;
+                  const done   = idx < currentIdx;
+                  const active = idx === currentIdx;
+                  return (
+                    <div key={step.key} className={`timeline-step${done ? ' done' : active ? ' active' : ''}`}>
+                      {/* Connector (not on first step) */}
+                      {idx > 0 && (
+                        <div className={`timeline-connector${done || active ? ' done' : ''}`}
+                          style={{ left: '-50%' }} />
+                      )}
+                      <div className={`timeline-dot${done ? ' done' : active ? ' active' : ''}`}>
+                        <Icon size={14} />
+                      </div>
+                      <div className="timeline-label">{step.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Status update select */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'var(--bg-input)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)', padding: '0.875rem 1rem'
+          }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Update Status
+            </span>
+            <select
               value={order.status}
-              onChange={(e) => {
-                updateOrderStatus(order.id, e.target.value);
-                setOrderModal({ isOpen: true, order: { ...order, status: e.target.value } });
-              }}
+              onChange={e => handleStatusChange(e.target.value)}
               className="select-filter"
+              style={{ minWidth: 160 }}
             >
-              <option value="Pending">Set Pending</option>
-              <option value="Processing">Set Processing</option>
-              <option value="Shipped">Set Shipped</option>
-              <option value="Delivered">Set Delivered</option>
-              <option value="Cancelled">Set Cancelled</option>
+              {['Pending','Processing','Shipped','Delivered','Cancelled'].map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </select>
           </div>
 
-          {/* Customer & Address Details */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div style={{ padding: '0.9rem', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: '700', marginBottom: '0.4rem' }}>
-                <User size={14} />
-                CUSTOMER
-              </div>
-              <div style={{ fontWeight: '700' }}>{order.customer}</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{order.email}</div>
+          {/* Info grid */}
+          <div className="info-grid">
+            <div className="info-box">
+              <div className="info-box-label"><User size={12} /> Customer</div>
+              <div className="info-box-val">{order.customer}</div>
+              <div className="info-box-sub">{order.email}</div>
             </div>
-
-            <div style={{ padding: '0.9rem', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: '700', marginBottom: '0.4rem' }}>
-                <CreditCard size={14} />
-                PAYMENT METHOD
-              </div>
-              <div style={{ fontWeight: '700' }}>{order.paymentMethod}</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--success)' }}>Payment Confirmed</div>
+            <div className="info-box">
+              <div className="info-box-label"><CreditCard size={12} /> Payment</div>
+              <div className="info-box-val">{order.paymentMethod}</div>
+              <div className="info-box-sub" style={{ color: 'var(--success)' }}>Confirmed ✓</div>
             </div>
           </div>
 
-          <div style={{ padding: '0.9rem', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: '700', marginBottom: '0.4rem' }}>
-              <MapPin size={14} />
-              SHIPPING ADDRESS
-            </div>
-            <div style={{ fontWeight: '600', fontSize: '0.88rem' }}>{order.shippingAddress || 'N/A'}</div>
+          <div className="info-box">
+            <div className="info-box-label"><MapPin size={12} /> Shipping Address</div>
+            <div className="info-box-val">{order.shippingAddress || 'Not provided'}</div>
           </div>
 
-          {/* Order Items Table */}
+          {/* Items table */}
           <div>
-            <h4 style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '0.6rem' }}>Items Breakdown</h4>
-            <div style={{ border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-muted)', marginBottom: '0.625rem' }}>
+              Items
+            </div>
+            <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
               <table>
                 <thead>
                   <tr>
-                    <th>Item Description</th>
+                    <th>Description</th>
                     <th>Qty</th>
-                    <th>Price</th>
+                    <th>Unit Price</th>
                     <th>Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {order.items && order.items.map((item, idx) => (
-                    <tr key={idx}>
-                      <td><strong>{item.name}</strong></td>
-                      <td>{item.quantity}</td>
-                      <td>${item.price.toFixed(2)}</td>
-                      <td><strong>${(item.quantity * item.price).toFixed(2)}</strong></td>
+                  {(order.items || []).map((item, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight: 600 }}>{item.name}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{item.quantity}</td>
+                      <td className="font-mono">${item.price.toFixed(2)}</td>
+                      <td className="font-mono font-bold">${(item.quantity * item.price).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -118,20 +150,20 @@ export default function OrderModal() {
             </div>
           </div>
 
-          {/* Total Summary */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', fontSize: '1.1rem', fontWeight: '800' }}>
-            <span>Order Total:</span>
-            <span style={{ color: 'var(--accent-primary)' }}>${order.total.toFixed(2)}</span>
+          {/* Total */}
+          <div style={{
+            display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem',
+            paddingTop: '0.5rem', borderTop: '1px solid var(--border)', marginTop: '0.25rem'
+          }}>
+            <span style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Order Total</span>
+            <span className="font-mono" style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent)' }}>
+              ${order.total.toFixed(2)}
+            </span>
           </div>
         </div>
 
         <div className="modal-footer">
-          <button 
-            className="btn-secondary"
-            onClick={() => setOrderModal({ isOpen: false, order: null })}
-          >
-            Close
-          </button>
+          <button className="btn btn-secondary" onClick={close}>Close</button>
         </div>
       </div>
     </div>

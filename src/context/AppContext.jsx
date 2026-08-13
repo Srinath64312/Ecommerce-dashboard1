@@ -12,6 +12,9 @@ export function AppProvider({ children }) {
   // Navigation tab
   const [activeTab, setActiveTab] = useState('overview');
 
+  // Sidebar collapsed state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   // Global search & filters
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState('7d');
@@ -135,6 +138,8 @@ export function AppProvider({ children }) {
       toggleTheme,
       activeTab,
       setActiveTab,
+      sidebarCollapsed,
+      setSidebarCollapsed,
       searchQuery,
       setSearchQuery,
       dateRange,

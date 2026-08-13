@@ -1,121 +1,172 @@
-import React, { useState } from 'react';
-import { 
-  DollarSign, 
-  ShoppingBag, 
-  Users, 
-  Package, 
-  TrendingUp, 
-  TrendingDown, 
-  AlertTriangle,
-  GripVertical,
-  Eye,
-  ArrowRight
+import React, { useState, useEffect } from 'react';
+import {
+  DollarSign, ShoppingBag, Users, Package,
+  TrendingUp, TrendingDown, AlertTriangle,
+  GripVertical, ArrowRight, Eye, CheckCircle,
+  Clock, Zap, Activity
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SALES_TRENDS, CATEGORY_BREAKDOWN } from '../utils/mockData';
 
+// Animated counter hook
+function useCountUp(target, duration = 1200) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const step = target / (duration / 16);
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= target) { setValue(target); clearInterval(timer); }
+      else setValue(Math.floor(start));
+    }, 16);
+    return () => clearInterval(timer);
+  }, [target, duration]);
+  return value;
+}
+
+// Sparkline SVG
+function Sparkline({ data, color }) {
+  if (!data || data.length < 2) return null;
+  const w = 80, h = 32;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - 4) - 2;
+    return `${x},${y}`;
+  });
+  return (
+    <svg width={w} height={h} className="sparkline">
+      <polyline
+        points={pts.join(' ')}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity="0.8"
+      />
+    </svg>
+  );
+}
+
+// KPI Card with animated counter
+function KpiCard({ label, value, prefix = '', suffix = '', trend, trendDir, color, iconBg, icon: Icon, sparkData }) {
+  const animated = useCountUp(value, 1000);
+  const display = prefix + (value >= 1000 ? animated.toLocaleString() : animated) + suffix;
+  return (
+    <div className="kpi-card">
+      <div className="kpi-top">
+        <span className="kpi-label">{label}</span>
+        <div className="kpi-icon-wrap" style={{ background: iconBg }}>
+          <Icon size={18} style={{ color }} />
+        </div>
+      </div>
+      <div className="kpi-value">{display}</div>
+      <div className="kpi-bottom">
+        <span className={`kpi-trend ${trendDir}`}>
+          {trendDir === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+          {trend}
+        </span>
+        <Sparkline data={sparkData} color={color} />
+      </div>
+    </div>
+  );
+}
+
+// Bar Chart
+function BarChart({ data, dateRange }) {
+  const maxRev = Math.max(...data.map(d => d.revenue));
+  return (
+    <div className="bar-chart">
+      {data.map((d, i) => {
+        const h = Math.max(8, (d.revenue / maxRev) * 100);
+        return (
+          <div key={i} className="bar-col">
+            <div className="bar-tooltip">
+              ${d.revenue.toLocaleString()} · {d.orders} orders
+            </div>
+            <div
+              className="bar-fill bar-primary"
+              style={{ height: `${h}%`, animationDelay: `${i * 60}ms` }}
+            />
+            <span className="bar-label">{d.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Activity feed mock data
+const ACTIVITY_ITEMS = [
+  { icon: <ShoppingBag size={14} />, iconBg: 'var(--accent-subtle)', iconColor: 'var(--accent)', text: <><strong>Alex Morgan</strong> placed order ORD-9081 for <strong>$389.49</strong></>, time: '2 min ago' },
+  { icon: <AlertTriangle size={14} />, iconBg: 'var(--warning-bg)', iconColor: 'var(--warning)', text: <><strong>Stainless Steel Bottle</strong> is running low — only <strong>5 units</strong> left</>, time: '14 min ago' },
+  { icon: <CheckCircle size={14} />, iconBg: 'var(--success-bg)', iconColor: 'var(--success)', text: <>Order <strong>ORD-9082</strong> by Sophia Chen marked as <strong>Processing</strong></>, time: '42 min ago' },
+  { icon: <Users size={14} />, iconBg: 'hsla(158,64%,52%,0.12)', iconColor: 'var(--success)', text: <><strong>Elena Rostova</strong> registered as a new customer</>, time: '1 hr ago' },
+  { icon: <Package size={14} />, iconBg: 'var(--danger-bg)', iconColor: 'var(--danger)', text: <><strong>Minimalist Leather Backpack</strong> is now out of stock</>, time: '3 hr ago' },
+];
+
 export default function OverviewSection() {
-  const { 
-    products, 
-    orders, 
-    customers, 
-    dateRange, 
-    lowStockProducts,
-    setActiveTab,
-    setOrderModal,
-    widgets,
-    setWidgets
-  } = useApp();
+  const { products, orders, customers, dateRange, lowStockProducts, setActiveTab, setOrderModal, widgets, setWidgets } = useApp();
+  const [dragging, setDragging] = useState(null);
 
-  const [draggedWidget, setDraggedWidget] = useState(null);
+  const chartData = SALES_TRENDS[dateRange] || SALES_TRENDS['7d'];
+  const totalRevenue = orders.reduce((s, o) => o.status !== 'Cancelled' ? s + o.total : s, 0);
+  const inStock = products.filter(p => p.stock > 0).length;
 
-  // Compute live KPIs based on state
-  const totalRevenue = orders.reduce((sum, o) => o.status !== 'Cancelled' ? sum + o.total : sum, 0);
-  const totalOrders = orders.length;
-  const totalCustomers = customers.length;
-  const activeProductsCount = products.filter(p => p.stock > 0).length;
+  // Sparklines (just cycle through chartData revenue values)
+  const sparkRev   = chartData.map(d => d.revenue);
+  const sparkOrd   = chartData.map(d => d.orders);
+  const sparkCust  = [120, 145, 130, 160, 188, 175, 200];
+  const sparkProd  = products.map(p => p.stock).slice(0, 7);
 
-  const currentChartData = SALES_TRENDS[dateRange] || SALES_TRENDS['7d'];
-  const maxRevenueInChart = Math.max(...currentChartData.map(d => d.revenue));
-
-  // Drag and drop handlers for dashboard widgets
-  const handleDragStart = (e, index) => {
-    setDraggedWidget(index);
+  function handleDragStart(e, idx) {
+    setDragging(idx);
     e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e, index) => {
+  }
+  function handleDragOver(e, idx) {
     e.preventDefault();
-    if (draggedWidget === null || draggedWidget === index) return;
-    
-    const updated = [...widgets];
-    const draggedItem = updated[draggedWidget];
-    updated.splice(draggedWidget, 1);
-    updated.splice(index, 0, draggedItem);
-    setDraggedWidget(index);
-    setWidgets(updated);
-  };
+    if (dragging === null || dragging === idx) return;
+    const next = [...widgets];
+    const item = next.splice(dragging, 1)[0];
+    next.splice(idx, 0, item);
+    setDragging(idx);
+    setWidgets(next);
+  }
+  function handleDragEnd() { setDragging(null); }
 
-  const renderWidgetContent = (widgetId) => {
-    switch (widgetId) {
+  const renderWidget = (wid) => {
+    switch (wid) {
       case 'kpis':
         return (
           <div className="kpi-grid">
-            <div className="kpi-card">
-              <div className="kpi-top">
-                <span className="kpi-label">Total Revenue</span>
-                <div className="kpi-icon" style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', color: 'var(--accent-primary)' }}>
-                  <DollarSign size={22} />
-                </div>
-              </div>
-              <div className="kpi-value">${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-              <div className="kpi-trend up">
-                <TrendingUp size={14} />
-                <span>+14.8% vs last period</span>
-              </div>
-            </div>
-
-            <div className="kpi-card">
-              <div className="kpi-top">
-                <span className="kpi-label">Total Orders</span>
-                <div className="kpi-icon" style={{ backgroundColor: 'rgba(6, 182, 212, 0.15)', color: 'var(--info)' }}>
-                  <ShoppingBag size={22} />
-                </div>
-              </div>
-              <div className="kpi-value">{totalOrders}</div>
-              <div className="kpi-trend up">
-                <TrendingUp size={14} />
-                <span>+8.2% vs last period</span>
-              </div>
-            </div>
-
-            <div className="kpi-card">
-              <div className="kpi-top">
-                <span className="kpi-label">Total Customers</span>
-                <div className="kpi-icon" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)' }}>
-                  <Users size={22} />
-                </div>
-              </div>
-              <div className="kpi-value">{totalCustomers}</div>
-              <div className="kpi-trend up">
-                <TrendingUp size={14} />
-                <span>+12.4% new signups</span>
-              </div>
-            </div>
-
-            <div className="kpi-card">
-              <div className="kpi-top">
-                <span className="kpi-label">In-Stock Products</span>
-                <div className="kpi-icon" style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)' }}>
-                  <Package size={22} />
-                </div>
-              </div>
-              <div className="kpi-value">{activeProductsCount} / {products.length}</div>
-              <div className={`kpi-trend ${lowStockProducts.length > 0 ? 'down' : 'up'}`}>
-                {lowStockProducts.length > 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
-                <span>{lowStockProducts.length} low stock warnings</span>
-              </div>
-            </div>
+            <KpiCard
+              label="Total Revenue" value={Math.round(totalRevenue)} prefix="$"
+              trend="+14.8% vs last period" trendDir="up"
+              color="var(--accent)" iconBg="var(--accent-subtle)" icon={DollarSign}
+              sparkData={sparkRev}
+            />
+            <KpiCard
+              label="Total Orders" value={orders.length}
+              trend="+8.2% vs last period" trendDir="up"
+              color="var(--info)" iconBg="var(--info-bg)" icon={ShoppingBag}
+              sparkData={sparkOrd}
+            />
+            <KpiCard
+              label="Customers" value={customers.length}
+              trend="+12.4% new signups" trendDir="up"
+              color="var(--success)" iconBg="var(--success-bg)" icon={Users}
+              sparkData={sparkCust}
+            />
+            <KpiCard
+              label="In-Stock Products" value={inStock} suffix={`/${products.length}`}
+              trend={lowStockProducts.length > 0 ? `${lowStockProducts.length} need attention` : 'All levels optimal'}
+              trendDir={lowStockProducts.length > 0 ? 'down' : 'up'}
+              color="var(--warning)" iconBg="var(--warning-bg)" icon={Package}
+              sparkData={sparkProd}
+            />
           </div>
         );
 
@@ -124,25 +175,13 @@ export default function OverviewSection() {
           <div className="widget-card">
             <div className="widget-header">
               <div className="widget-title">
-                <GripVertical size={18} className="drag-handle" />
-                <span>Revenue & Sales Overview ({dateRange.toUpperCase()})</span>
+                <Activity size={16} style={{ color: 'var(--accent)' }} />
+                Revenue Overview <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 500 }}>({dateRange.toUpperCase()})</span>
               </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Drag widget to reorder</span>
+              <GripVertical size={16} style={{ color: 'var(--text-muted)', cursor: 'grab' }} />
             </div>
-
-            <div className="chart-container">
-              {currentChartData.map((d, i) => {
-                const heightPercent = Math.max(15, (d.revenue / maxRevenueInChart) * 100);
-                return (
-                  <div key={i} className="chart-bar-wrapper">
-                    <div className="chart-tooltip">
-                      ${d.revenue.toLocaleString()} ({d.orders} orders)
-                    </div>
-                    <div className="chart-bar" style={{ height: `${heightPercent}%` }}></div>
-                    <span className="chart-label">{d.label}</span>
-                  </div>
-                );
-              })}
+            <div className="widget-body">
+              <BarChart data={chartData} />
             </div>
           </div>
         );
@@ -150,16 +189,25 @@ export default function OverviewSection() {
       case 'inventoryAlerts':
         if (lowStockProducts.length === 0) return null;
         return (
-          <div className="alert-banner">
-            <div className="alert-info">
-              <AlertTriangle size={22} />
+          <div style={{
+            background: 'var(--warning-bg)',
+            border: '1px solid hsla(38,92%,60%,0.25)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1rem 1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--warning)', fontWeight: 700 }}>
+              <AlertTriangle size={20} />
               <span>
-                Attention Required: <strong>{lowStockProducts.length} product(s)</strong> are currently low or out of stock!
+                {lowStockProducts.length} product{lowStockProducts.length > 1 ? 's' : ''} need stock attention
               </span>
             </div>
-            <button className="btn-secondary" onClick={() => setActiveTab('products')}>
-              Manage Stock
-              <ArrowRight size={16} />
+            <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('products')}>
+              Manage Inventory <ArrowRight size={14} />
             </button>
           </div>
         );
@@ -169,51 +217,42 @@ export default function OverviewSection() {
           <div className="widget-card">
             <div className="widget-header">
               <div className="widget-title">
-                <GripVertical size={18} className="drag-handle" />
-                <span>Recent Customer Orders</span>
+                <ShoppingBag size={16} style={{ color: 'var(--accent)' }} />
+                Recent Orders
               </div>
-              <button 
-                className="btn-secondary" 
-                style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
-                onClick={() => setActiveTab('orders')}
-              >
-                View All
+              <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('orders')}>
+                View all <ArrowRight size={13} />
               </button>
             </div>
-
-            <div className="table-container">
+            <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Order ID</th>
+                    <th>Order</th>
                     <th>Customer</th>
-                    <th>Date</th>
-                    <th>Items</th>
                     <th>Total</th>
                     <th>Status</th>
-                    <th>Action</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.slice(0, 4).map(o => (
+                  {orders.slice(0, 5).map(o => (
                     <tr key={o.id}>
-                      <td><strong>{o.id}</strong></td>
-                      <td>{o.customer}</td>
-                      <td>{new Date(o.date).toLocaleDateString()}</td>
-                      <td>{o.itemsCount} item(s)</td>
-                      <td><strong>${o.total.toFixed(2)}</strong></td>
+                      <td><span className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{o.id}</span></td>
+                      <td><span style={{ fontWeight: 600 }}>{o.customer}</span></td>
+                      <td><span className="font-mono font-bold">${o.total.toFixed(2)}</span></td>
                       <td>
-                        <span className={`badge-status ${o.status.toLowerCase().replace(' ', '-')}`}>
-                          {o.status}
-                        </span>
+                        <span className={`badge ${
+                          o.status === 'Delivered' ? 'badge-success' :
+                          o.status === 'Shipped'   ? 'badge-info' :
+                          o.status === 'Cancelled' ? 'badge-danger' :
+                          'badge-warning'
+                        }`}>{o.status}</span>
                       </td>
                       <td>
-                        <button 
-                          className="btn-icon" 
-                          style={{ width: '32px', height: '32px' }}
-                          onClick={() => setOrderModal({ isOpen: true, order: o })}
-                        >
-                          <Eye size={14} />
+                        <button className="btn btn-icon" style={{ width: 28, height: 28 }}
+                          onClick={() => setOrderModal({ isOpen: true, order: o })}>
+                          <Eye size={13} />
                         </button>
                       </td>
                     </tr>
@@ -229,26 +268,49 @@ export default function OverviewSection() {
           <div className="widget-card">
             <div className="widget-header">
               <div className="widget-title">
-                <GripVertical size={18} className="drag-handle" />
-                <span>Sales Share by Product Category</span>
+                <Zap size={16} style={{ color: 'var(--warning)' }} />
+                Revenue by Category
               </div>
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem' }}>
-              {CATEGORY_BREAKDOWN.map((cat, idx) => (
-                <div key={idx} className="category-item">
-                  <div className="category-meta">
-                    <span>{cat.category}</span>
-                    <span style={{ color: cat.color }}>{cat.percentage}% (${cat.revenue.toLocaleString()})</span>
+            <div className="widget-body">
+              {CATEGORY_BREAKDOWN.map((c, i) => (
+                <div key={i} className="cat-item">
+                  <div className="cat-meta">
+                    <span>{c.category}</span>
+                    <span className="cat-pct" style={{ color: c.color }}>{c.percentage}%</span>
                   </div>
-                  <div className="progress-bar-bg">
-                    <div 
-                      className="progress-bar-fill" 
-                      style={{ width: `${cat.percentage}%`, backgroundColor: cat.color }}
-                    ></div>
+                  <div className="cat-bar-bg">
+                    <div className="cat-bar-fill" style={{ width: `${c.percentage}%`, background: c.color }} />
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        );
+
+      case 'activityFeed':
+        return (
+          <div className="widget-card">
+            <div className="widget-header">
+              <div className="widget-title">
+                <Clock size={16} style={{ color: 'var(--info)' }} />
+                Live Activity Feed
+              </div>
+            </div>
+            <div className="widget-body" style={{ padding: '0 1.25rem' }}>
+              <div className="activity-list">
+                {ACTIVITY_ITEMS.map((item, i) => (
+                  <div key={i} className="activity-item">
+                    <div className="activity-icon" style={{ background: item.iconBg, color: item.iconColor }}>
+                      {item.icon}
+                    </div>
+                    <div>
+                      <div className="activity-text">{item.text}</div>
+                      <div className="activity-time">{item.time}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         );
@@ -259,25 +321,30 @@ export default function OverviewSection() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="section-gap page-fade">
       <div className="section-header">
         <div>
           <h1 className="section-title">Dashboard Overview</h1>
-          <p className="section-subtitle">Real-time performance indicators and operational alerts.</p>
+          <p className="section-subtitle">Real-time performance metrics — drag widgets to customise your layout.</p>
         </div>
       </div>
 
-      {widgets.map((widgetId, index) => (
-        <div
-          key={widgetId}
-          draggable
-          onDragStart={(e) => handleDragStart(e, index)}
-          onDragOver={(e) => handleDragOver(e, index)}
-          className={`drag-wrapper ${draggedWidget === index ? 'dragging' : ''}`}
-        >
-          {renderWidgetContent(widgetId)}
-        </div>
-      ))}
+      {widgets.map((wid, idx) => {
+        const content = renderWidget(wid);
+        if (!content) return null;
+        return (
+          <div
+            key={wid}
+            className={`drag-wrapper${dragging === idx ? ' dragging' : ''}`}
+            draggable
+            onDragStart={e => handleDragStart(e, idx)}
+            onDragOver={e => handleDragOver(e, idx)}
+            onDragEnd={handleDragEnd}
+          >
+            {content}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -1,198 +1,138 @@
 import React, { useState, useEffect } from 'react';
-import { X, UploadCloud } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+
+const CATEGORIES = ['Electronics', 'Computers', 'Home & Living', 'Fashion'];
 
 export default function ProductModal() {
   const { productModal, setProductModal, addProduct, updateProduct } = useApp();
   const { isOpen, product } = productModal;
-
   const isEditing = !!product;
 
-  const [formData, setFormData] = useState({
-    name: '',
-    category: 'Electronics',
-    price: '',
-    cost: '',
-    stock: '',
-    minStockLevel: '10',
-    sku: '',
+  const blankForm = {
+    name: '', category: 'Electronics', price: '', cost: '',
+    stock: '', minStockLevel: '10', sku: '',
     image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&auto=format&fit=crop&q=80'
-  });
+  };
+
+  const [form, setForm] = useState(blankForm);
 
   useEffect(() => {
-    if (product) {
-      setFormData({
-        name: product.name || '',
-        category: product.category || 'Electronics',
-        price: product.price ? String(product.price) : '',
-        cost: product.cost ? String(product.cost) : '',
-        stock: product.stock !== undefined ? String(product.stock) : '',
-        minStockLevel: product.minStockLevel ? String(product.minStockLevel) : '10',
-        sku: product.sku || '',
-        image: product.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&auto=format&fit=crop&q=80'
-      });
-    } else {
-      setFormData({
-        name: '',
-        category: 'Electronics',
-        price: '',
-        cost: '',
-        stock: '',
-        minStockLevel: '10',
-        sku: '',
-        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&auto=format&fit=crop&q=80'
-      });
-    }
+    setForm(product ? {
+      name: product.name || '',
+      category: product.category || 'Electronics',
+      price: product.price != null ? String(product.price) : '',
+      cost: product.cost != null ? String(product.cost) : '',
+      stock: product.stock != null ? String(product.stock) : '',
+      minStockLevel: product.minStockLevel != null ? String(product.minStockLevel) : '10',
+      sku: product.sku || '',
+      image: product.image || blankForm.image,
+    } : blankForm);
   }, [product]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  function set(field, val) { setForm(f => ({ ...f, [field]: val })); }
+
+  function handleSubmit(e) {
     e.preventDefault();
     const payload = {
-      ...formData,
-      price: parseFloat(formData.price) || 0,
-      cost: parseFloat(formData.cost) || 0,
-      stock: parseInt(formData.stock, 10) || 0,
-      minStockLevel: parseInt(formData.minStockLevel, 10) || 10,
+      ...form,
+      price: parseFloat(form.price) || 0,
+      cost: parseFloat(form.cost) || 0,
+      stock: parseInt(form.stock, 10) || 0,
+      minStockLevel: parseInt(form.minStockLevel, 10) || 10,
     };
-
     if (isEditing) {
       updateProduct({ ...product, ...payload });
     } else {
       addProduct(payload);
     }
-
     setProductModal({ isOpen: false, product: null });
-  };
+  }
+
+  function close() { setProductModal({ isOpen: false, product: null }); }
 
   return (
-    <div className="modal-overlay" onClick={() => setProductModal({ isOpen: false, product: null })}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={close}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">{isEditing ? 'Edit Product Details' : 'Add New Product'}</h2>
-          <button 
-            className="btn-icon" 
-            style={{ width: '32px', height: '32px' }}
-            onClick={() => setProductModal({ isOpen: false, product: null })}
-          >
-            <X size={18} />
+          <div>
+            <div className="modal-title">{isEditing ? 'Edit Product' : 'New Product'}</div>
+            <div className="modal-sub">{isEditing ? `Updating ${product.name}` : 'Add a new item to your catalogue'}</div>
+          </div>
+          <button className="btn btn-icon" style={{ width: 32, height: 32 }} onClick={close}>
+            <X size={16} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="form-group">
-              <label>Product Name</label>
-              <input 
-                type="text" 
-                required 
-                placeholder="e.g. Ergonomic Wireless Mouse"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
+              <label className="form-label">Product Name *</label>
+              <input className="form-input" required placeholder="e.g. Wireless Ergonomic Mouse"
+                value={form.name} onChange={e => set('name', e.target.value)} />
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label>Category</label>
-                <select 
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                >
-                  <option value="Electronics">Electronics</option>
-                  <option value="Computers">Computers</option>
-                  <option value="Home & Living">Home & Living</option>
-                  <option value="Fashion">Fashion</option>
+                <label className="form-label">Category</label>
+                <select className="form-select" value={form.category} onChange={e => set('category', e.target.value)}>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-
               <div className="form-group">
-                <label>SKU (Stock Keeping Unit)</label>
-                <input 
-                  type="text" 
-                  required 
-                  placeholder="ELEC-1001"
-                  value={formData.sku}
-                  onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                />
+                <label className="form-label">SKU *</label>
+                <input className="form-input" required placeholder="ELEC-1001"
+                  value={form.sku} onChange={e => set('sku', e.target.value)} />
               </div>
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label>Retail Price ($)</label>
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  required 
-                  placeholder="99.99"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                />
+                <label className="form-label">Retail Price ($) *</label>
+                <input className="form-input" type="number" step="0.01" required placeholder="99.99"
+                  value={form.price} onChange={e => set('price', e.target.value)} />
               </div>
-
               <div className="form-group">
-                <label>Unit Cost ($)</label>
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  placeholder="45.00"
-                  value={formData.cost}
-                  onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
-                />
+                <label className="form-label">Unit Cost ($)</label>
+                <input className="form-input" type="number" step="0.01" placeholder="45.00"
+                  value={form.cost} onChange={e => set('cost', e.target.value)} />
               </div>
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label>Current Stock Units</label>
-                <input 
-                  type="number" 
-                  required 
-                  placeholder="25"
-                  value={formData.stock}
-                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                />
+                <label className="form-label">Stock Units *</label>
+                <input className="form-input" type="number" required placeholder="25"
+                  value={form.stock} onChange={e => set('stock', e.target.value)} />
               </div>
-
               <div className="form-group">
-                <label>Low Stock Warning Threshold</label>
-                <input 
-                  type="number" 
-                  placeholder="10"
-                  value={formData.minStockLevel}
-                  onChange={(e) => setFormData({ ...formData, minStockLevel: e.target.value })}
-                />
+                <label className="form-label">Low Stock Threshold</label>
+                <input className="form-input" type="number" placeholder="10"
+                  value={form.minStockLevel} onChange={e => set('minStockLevel', e.target.value)} />
               </div>
             </div>
 
             <div className="form-group">
-              <label>Image URL</label>
-              <input 
-                type="text" 
-                placeholder="https://..."
-                value={formData.image}
-                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-              />
-              {formData.image && (
-                <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <img src={formData.image} alt="Preview" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Image preview active</span>
+              <label className="form-label">Product Image URL</label>
+              <input className="form-input" type="url" placeholder="https://..."
+                value={form.image} onChange={e => set('image', e.target.value)} />
+              {form.image && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  <img src={form.image} alt="Preview"
+                    style={{ width: 52, height: 52, borderRadius: 'var(--radius-md)', objectFit: 'cover', border: '1px solid var(--border)' }}
+                    onError={e => e.target.style.display = 'none'}
+                  />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Image preview</span>
                 </div>
               )}
             </div>
           </div>
 
           <div className="modal-footer">
-            <button 
-              type="button" 
-              className="btn-secondary"
-              onClick={() => setProductModal({ isOpen: false, product: null })}
-            >
-              Cancel
-            </button>
-            <button type="submit" className="btn-primary">
+            <button type="button" className="btn btn-secondary" onClick={close}>Cancel</button>
+            <button type="submit" className="btn btn-primary">
               {isEditing ? 'Save Changes' : 'Create Product'}
             </button>
           </div>

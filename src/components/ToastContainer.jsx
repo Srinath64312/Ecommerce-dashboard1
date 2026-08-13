@@ -4,23 +4,17 @@ import { useApp } from '../context/AppContext';
 
 export default function ToastContainer() {
   const { toasts, removeToast } = useApp();
-
-  if (!toasts || toasts.length === 0) return null;
+  if (!toasts.length) return null;
 
   return (
     <div className="toast-container">
-      {toasts.map(toast => (
-        <div key={toast.id} className={`toast ${toast.type}`}>
-          {toast.type === 'success' && <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />}
-          {toast.type === 'warning' && <AlertTriangle size={18} style={{ color: 'var(--warning)' }} />}
-          {toast.type === 'info' && <Info size={18} style={{ color: 'var(--accent-primary)' }} />}
-          
-          <span style={{ flex: 1 }}>{toast.message}</span>
-          
-          <button 
-            style={{ background: 'none', border: 'none', color: 'var(--text-subtle)', cursor: 'pointer' }}
-            onClick={() => removeToast(toast.id)}
-          >
+      {toasts.map(t => (
+        <div key={t.id} className={`toast ${t.type}`}>
+          {t.type === 'success' && <CheckCircle2 size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />}
+          {t.type === 'warning' && <AlertTriangle size={16} style={{ color: 'var(--warning)', flexShrink: 0 }} />}
+          {t.type === 'info'    && <Info          size={16} style={{ color: 'var(--accent)',  flexShrink: 0 }} />}
+          <span style={{ flex: 1, fontSize: '0.875rem' }}>{t.message}</span>
+          <button className="toast-close" onClick={() => removeToast(t.id)}>
             <X size={14} />
           </button>
         </div>

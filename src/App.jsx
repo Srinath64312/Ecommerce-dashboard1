@@ -12,23 +12,26 @@ import OrderModal from './components/OrderModal';
 import ToastContainer from './components/ToastContainer';
 
 function MainAppContent() {
-  const { activeTab } = useApp();
+  const { activeTab, sidebarCollapsed } = useApp();
+
+  // Map of tab content — keyed so React unmounts/mounts for transition
+  const sections = {
+    overview:   <OverviewSection />,
+    analytics:  <AnalyticsSection />,
+    products:   <ProductsSection />,
+    orders:     <OrdersSection />,
+    customers:  <CustomersSection />,
+  };
 
   return (
     <div className="app-container">
       <Sidebar />
-      <div className="main-wrapper">
+      <div className={`main-wrapper${sidebarCollapsed ? ' collapsed' : ''}`}>
         <Header />
-        <main className="content-body">
-          {activeTab === 'overview' && <OverviewSection />}
-          {activeTab === 'analytics' && <AnalyticsSection />}
-          {activeTab === 'products' && <ProductsSection />}
-          {activeTab === 'orders' && <OrdersSection />}
-          {activeTab === 'customers' && <CustomersSection />}
+        <main className="content-body" key={activeTab}>
+          {sections[activeTab]}
         </main>
       </div>
-
-      {/* Global Modals & Feedback */}
       <ProductModal />
       <OrderModal />
       <ToastContainer />

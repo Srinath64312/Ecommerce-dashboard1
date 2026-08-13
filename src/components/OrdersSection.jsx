@@ -1,138 +1,151 @@
 import React, { useState } from 'react';
-import { Search, Eye, Filter, Download } from 'lucide-react';
+import { Search, Eye, Download } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { exportToCSV } from '../utils/csvExporter';
 
+const ALL_STATUSES = ['All', 'Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+
+function getStatusBadgeClass(status) {
+  switch (status) {
+    case 'Delivered':  return 'badge-success';
+    case 'Shipped':    return 'badge-info';
+    case 'Cancelled':  return 'badge-danger';
+    default:           return 'badge-warning';
+  }
+}
+
 export default function OrdersSection() {
   const { orders, searchQuery, setSearchQuery, updateOrderStatus, setOrderModal } = useApp();
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [statusTab, setStatusTab] = useState('All');
 
-  const statuses = ['All', 'Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+  const tabCounts = ALL_STATUSES.reduce((acc, s) => {
+    acc[s] = s === 'All' ? orders.length : orders.filter(o => o.status === s).length;
+    return acc;
+  }, {});
 
-  const filteredOrders = orders.filter(o => {
-    const matchesSearch = 
-      o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.email.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = statusFilter === 'All' || o.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
+  const filtered = orders.filter(o => {
+    const q = searchQuery.toLowerCase();
+    const matchSearch = o.id.toLowerCase().includes(q) ||
+      o.customer.toLowerCase().includes(q) ||
+      o.email.toLowerCase().includes(q);
+    const matchTab = statusTab === 'All' || o.status === statusTab;
+    return matchSearch && matchTab;
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="section-gap page-fade">
       <div className="section-header">
         <div>
           <h1 className="section-title">Order Management</h1>
-          <p className="section-subtitle">Process customer orders, update shipping statuses, and review full order details.</p>
+          <p className="section-subtitle">Process orders, update statuses, and review customer details.</p>
         </div>
-        <button 
-          className="btn-secondary"
-          onClick={() => exportToCSV(orders, 'orders_database.csv')}
-        >
-          <Download size={16} />
-          <span>Export Orders CSV</span>
+        <button className="btn btn-secondary" onClick={() => exportToCSV(orders, 'orders.csv')}>
+          <Download size={15} /> Export CSV
         </button>
       </div>
 
       <div className="table-card">
-        {/* Table Filters */}
-        <div className="table-controls">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', flex: 1 }}>
-            <div className="search-box" style={{ width: '280px' }}>
-              <Search size={16} className="text-muted" />
-              <input 
-                type="text" 
-                placeholder="Search order ID, customer name..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+        {/* Status tab-bar */}
+        <div className="status-tabs">
+          {ALL_STATUSES.map(s => (
+            <div
+              key={s}
+              className={`status-tab${statusTab === s ? ' active' : ''}`}
+              onClick={() => setStatusTab(s)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => e.key === 'Enter' && setStatusTab(s)}
+            >
+              {s}
+              <span className="status-count">{tabCounts[s]}</span>
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Filter size={16} className="text-muted" />
-              <select 
-                className="select-filter"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                {statuses.map((s, i) => (
-                  <option key={i} value={s}>Status: {s}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '600' }}>
-            Total Orders: <strong>{filteredOrders.length}</strong>
-          </div>
+          ))}
         </div>
 
-        {/* Orders Table */}
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Order ID</th>
-                <th>Customer</th>
-                <th>Date & Time</th>
-                <th>Payment</th>
-                <th>Total</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredOrders.length === 0 ? (
+        {/* Search */}
+        <div className="table-controls">
+          <div className="search-wrap" style={{ width: 280 }}>
+            <Search size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search order ID, customer..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <span className="ml-auto" style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+            {filtered.length} order{filtered.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {/* Table */}
+        <div className="table-wrap">
+          {filtered.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon"><Search size={22} /></div>
+              <div className="empty-title">No orders found</div>
+              <div className="empty-desc">Try a different status tab or clear your search</div>
+            </div>
+          ) : (
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                    No orders match your filter criteria.
-                  </td>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Date</th>
+                  <th>Payment</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th>View</th>
                 </tr>
-              ) : (
-                filteredOrders.map(o => (
+              </thead>
+              <tbody>
+                {filtered.map(o => (
                   <tr key={o.id}>
-                    <td><strong>{o.id}</strong></td>
+                    <td>
+                      <span className="font-mono" style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                        {o.id}
+                      </span>
+                    </td>
                     <td>
                       <div>
-                        <div style={{ fontWeight: '700' }}>{o.customer}</div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-subtle)' }}>{o.email}</div>
+                        <div style={{ fontWeight: 700 }}>{o.customer}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{o.email}</div>
                       </div>
                     </td>
-                    <td>{new Date(o.date).toLocaleString()}</td>
-                    <td>{o.paymentMethod}</td>
-                    <td><strong style={{ color: 'var(--text-main)' }}>${o.total.toFixed(2)}</strong></td>
+                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>
+                      {new Date(o.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </td>
+                    <td style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{o.paymentMethod}</td>
                     <td>
-                      {/* Inline Status Dropdown */}
-                      <select 
+                      <span className="font-mono font-bold">${o.total.toFixed(2)}</span>
+                    </td>
+                    <td>
+                      <select
                         value={o.status}
-                        onChange={(e) => updateOrderStatus(o.id, e.target.value)}
-                        className={`badge-status ${o.status.toLowerCase().replace(' ', '-')}`}
-                        style={{ border: 'none', cursor: 'pointer', outline: 'none' }}
+                        onChange={e => updateOrderStatus(o.id, e.target.value)}
+                        className={`status-select badge ${getStatusBadgeClass(o.status)}`}
                       >
-                        <option value="Pending" style={{ color: 'var(--text-main)', background: 'var(--bg-secondary)' }}>Pending</option>
-                        <option value="Processing" style={{ color: 'var(--text-main)', background: 'var(--bg-secondary)' }}>Processing</option>
-                        <option value="Shipped" style={{ color: 'var(--text-main)', background: 'var(--bg-secondary)' }}>Shipped</option>
-                        <option value="Delivered" style={{ color: 'var(--text-main)', background: 'var(--bg-secondary)' }}>Delivered</option>
-                        <option value="Cancelled" style={{ color: 'var(--text-main)', background: 'var(--bg-secondary)' }}>Cancelled</option>
+                        {['Pending','Processing','Shipped','Delivered','Cancelled'].map(s => (
+                          <option key={s} value={s} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>{s}</option>
+                        ))}
                       </select>
                     </td>
                     <td>
-                      <button 
-                        className="btn-icon"
-                        style={{ width: '34px', height: '34px' }}
-                        title="View Full Order Details"
+                      <button
+                        className="btn btn-icon"
+                        style={{ width: 30, height: 30 }}
+                        title="View order details"
                         onClick={() => setOrderModal({ isOpen: true, order: o })}
                       >
-                        <Eye size={16} />
+                        <Eye size={14} />
                       </button>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
