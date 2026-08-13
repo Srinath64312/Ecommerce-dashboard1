@@ -18,21 +18,36 @@ export function AppProvider({ children }) {
 
   // Data states with LocalStorage persistence
   const [products, setProducts] = useState(() => {
-    const saved = localStorage.getItem('products');
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    try {
+      const saved = localStorage.getItem('products');
+      const parsed = saved ? JSON.parse(saved) : null;
+      return (Array.isArray(parsed) && parsed.length > 0) ? parsed : INITIAL_PRODUCTS;
+    } catch (e) {
+      return INITIAL_PRODUCTS;
+    }
   });
 
   const [orders, setOrders] = useState(() => {
-    const saved = localStorage.getItem('orders');
-    return saved ? JSON.parse(saved) : INITIAL_ORDERS;
+    try {
+      const saved = localStorage.getItem('orders');
+      const parsed = saved ? JSON.parse(saved) : null;
+      return (Array.isArray(parsed) && parsed.length > 0) ? parsed : INITIAL_ORDERS;
+    } catch (e) {
+      return INITIAL_ORDERS;
+    }
   });
 
   const [customers] = useState(INITIAL_CUSTOMERS);
 
   // Drag and drop widget order on overview
   const [widgets, setWidgets] = useState(() => {
-    const saved = localStorage.getItem('dashboard_widgets');
-    return saved ? JSON.parse(saved) : ['kpis', 'salesChart', 'recentOrders', 'inventoryAlerts', 'categoryBreakdown'];
+    try {
+      const saved = localStorage.getItem('dashboard_widgets');
+      const parsed = saved ? JSON.parse(saved) : null;
+      return (Array.isArray(parsed) && parsed.length > 0) ? parsed : ['kpis', 'salesChart', 'recentOrders', 'inventoryAlerts', 'categoryBreakdown'];
+    } catch (e) {
+      return ['kpis', 'salesChart', 'recentOrders', 'inventoryAlerts', 'categoryBreakdown'];
+    }
   });
 
   // Modals state
