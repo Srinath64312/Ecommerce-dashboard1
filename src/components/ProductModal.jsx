@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-
-const CATEGORIES = ['Electronics', 'Computers', 'Home & Living', 'Fashion'];
+import { PRODUCT_CATEGORIES as CATEGORIES, sanitizeImageUrl, sanitizeNumber } from '../utils/sanitize';
 
 export default function ProductModal() {
   const { productModal, setProductModal, addProduct, updateProduct } = useApp();
@@ -38,10 +37,11 @@ export default function ProductModal() {
     e.preventDefault();
     const payload = {
       ...form,
-      price: parseFloat(form.price) || 0,
-      cost: parseFloat(form.cost) || 0,
-      stock: parseInt(form.stock, 10) || 0,
-      minStockLevel: parseInt(form.minStockLevel, 10) || 10,
+      price: sanitizeNumber(form.price, { max: 1_000_000 }),
+      cost: sanitizeNumber(form.cost, { max: 1_000_000 }),
+      stock: sanitizeNumber(form.stock, { integer: true, max: 1_000_000 }),
+      minStockLevel: sanitizeNumber(form.minStockLevel, { integer: true, max: 1_000_000, fallback: 10 }),
+      image: sanitizeImageUrl(form.image),
     };
     if (isEditing) {
       updateProduct({ ...product, ...payload });
@@ -91,12 +91,12 @@ export default function ProductModal() {
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Retail Price ($) *</label>
-                <input className="form-input" type="number" step="0.01" required placeholder="99.99"
+                <input className="form-input" type="number" step="0.01" min="0" required placeholder="99.99"
                   value={form.price} onChange={e => set('price', e.target.value)} />
               </div>
               <div className="form-group">
                 <label className="form-label">Unit Cost ($)</label>
-                <input className="form-input" type="number" step="0.01" placeholder="45.00"
+                <input className="form-input" type="number" step="0.01" min="0" placeholder="45.00"
                   value={form.cost} onChange={e => set('cost', e.target.value)} />
               </div>
             </div>
@@ -104,12 +104,12 @@ export default function ProductModal() {
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Stock Units *</label>
-                <input className="form-input" type="number" required placeholder="25"
+                <input className="form-input" type="number" min="0" step="1" required placeholder="25"
                   value={form.stock} onChange={e => set('stock', e.target.value)} />
               </div>
               <div className="form-group">
                 <label className="form-label">Low Stock Threshold</label>
-                <input className="form-input" type="number" placeholder="10"
+                <input className="form-input" type="number" min="0" step="1" placeholder="10"
                   value={form.minStockLevel} onChange={e => set('minStockLevel', e.target.value)} />
               </div>
             </div>
@@ -120,7 +120,7 @@ export default function ProductModal() {
                 value={form.image} onChange={e => set('image', e.target.value)} />
               {form.image && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
-                  <img src={form.image} alt="Preview"
+                  <img src={sanitizeImageUrl(form.image)} alt="Preview" referrerPolicy="no-referrer"
                     style={{ width: 52, height: 52, borderRadius: 'var(--radius-md)', objectFit: 'cover', border: '1px solid var(--border)' }}
                     onError={e => e.target.style.display = 'none'}
                   />

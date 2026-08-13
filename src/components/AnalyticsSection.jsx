@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { BarChart2, PieChart, TrendingUp, DollarSign, Award, ArrowUpRight, Filter } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SALES_TRENDS, CATEGORY_BREAKDOWN } from '../utils/mockData';
+import { sanitizeImageUrl } from '../utils/sanitize';
 
 /* ── SVG Donut Chart ─────────────────────────────────────────────────── */
 function DonutChart({ data, size = 180, stroke = 32 }) {
@@ -256,7 +257,7 @@ export default function AnalyticsSection() {
                   </td>
                   <td>
                     <div className="product-thumb">
-                      <img src={p.image} alt={p.name} className="product-thumb-img" />
+                      <img src={sanitizeImageUrl(p.image)} alt={p.name} className="product-thumb-img" referrerPolicy="no-referrer" />
                       <div>
                         <div className="product-thumb-name">{p.name}</div>
                         <div className="product-thumb-sku">{p.sku}</div>

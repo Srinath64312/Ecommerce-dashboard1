@@ -1,12 +1,38 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_CUSTOMERS } from '../utils/mockData';
+import { ORDER_STATUSES, sanitizeOrder, sanitizeProduct } from '../utils/sanitize';
 
 const AppContext = createContext();
+
+const DEFAULT_WIDGETS = ['kpis', 'salesChart', 'recentOrders', 'inventoryAlerts', 'categoryBreakdown'];
+const ALLOWED_THEMES = ['dark', 'light'];
+const MAX_PERSISTED_RECORDS = 1000;
+
+/**
+ * Read a persisted array, running every entry through `sanitizeItem` and
+ * dropping malformed records. Persisted state is untrusted input: it can be
+ * edited freely from devtools or by any script running on the origin.
+ * @param {string} key
+ * @param {(item: unknown) => unknown} sanitizeItem
+ * @param {Array<unknown>} fallback
+ */
+function loadPersistedArray(key, sanitizeItem, fallback) {
+  try {
+    const saved = localStorage.getItem(key);
+    const parsed = saved ? JSON.parse(saved) : null;
+    if (!Array.isArray(parsed) || parsed.length === 0) return fallback;
+    const cleaned = parsed.slice(0, MAX_PERSISTED_RECORDS).map(sanitizeItem).filter(Boolean);
+    return cleaned.length > 0 ? cleaned : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export function AppProvider({ children }) {
   // Theme state
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'dark';
+    const saved = localStorage.getItem('theme');
+    return ALLOWED_THEMES.includes(saved) ? saved : 'dark';
   });
 
   // Navigation tab
@@ -20,25 +46,13 @@ export function AppProvider({ children }) {
   const [dateRange, setDateRange] = useState('7d');
 
   // Data states with LocalStorage persistence
-  const [products, setProducts] = useState(() => {
-    try {
-      const saved = localStorage.getItem('products');
-      const parsed = saved ? JSON.parse(saved) : null;
-      return (Array.isArray(parsed) && parsed.length > 0) ? parsed : INITIAL_PRODUCTS;
-    } catch (e) {
-      return INITIAL_PRODUCTS;
-    }
-  });
+  const [products, setProducts] = useState(
+    () => loadPersistedArray('products', sanitizeProduct, INITIAL_PRODUCTS)
+  );
 
-  const [orders, setOrders] = useState(() => {
-    try {
-      const saved = localStorage.getItem('orders');
-      const parsed = saved ? JSON.parse(saved) : null;
-      return (Array.isArray(parsed) && parsed.length > 0) ? parsed : INITIAL_ORDERS;
-    } catch (e) {
-      return INITIAL_ORDERS;
-    }
-  });
+  const [orders, setOrders] = useState(
+    () => loadPersistedArray('orders', sanitizeOrder, INITIAL_ORDERS)
+  );
 
   const [customers] = useState(INITIAL_CUSTOMERS);
 
@@ -47,9 +61,11 @@ export function AppProvider({ children }) {
     try {
       const saved = localStorage.getItem('dashboard_widgets');
       const parsed = saved ? JSON.parse(saved) : null;
-      return (Array.isArray(parsed) && parsed.length > 0) ? parsed : ['kpis', 'salesChart', 'recentOrders', 'inventoryAlerts', 'categoryBreakdown'];
-    } catch (e) {
-      return ['kpis', 'salesChart', 'recentOrders', 'inventoryAlerts', 'categoryBreakdown'];
+      if (!Array.isArray(parsed)) return DEFAULT_WIDGETS;
+      const unique = [...new Set(parsed.filter(id => DEFAULT_WIDGETS.includes(id)))];
+      return unique.length === DEFAULT_WIDGETS.length ? unique : DEFAULT_WIDGETS;
+    } catch {
+      return DEFAULT_WIDGETS;
     }
   });
 
@@ -99,20 +115,26 @@ export function AppProvider({ children }) {
 
   // CRUD for Products
   const addProduct = (newProd) => {
-    const created = {
+    const created = sanitizeProduct({
       ...newProd,
       id: `PROD-${Date.now().toString().slice(-4)}`,
       rating: 5.0,
       salesCount: 0,
-      status: newProd.stock <= 0 ? 'Out of Stock' : (newProd.stock <= (newProd.minStockLevel || 10) ? 'Low Stock' : 'In Stock')
-    };
+    });
+    if (!created) {
+      addToast('Product could not be saved: invalid details.', 'warning');
+      return;
+    }
     setProducts(prev => [created, ...prev]);
     addToast(`Product "${created.name}" created successfully!`, 'success');
   };
 
   const updateProduct = (updatedProd) => {
-    const computedStatus = updatedProd.stock <= 0 ? 'Out of Stock' : (updatedProd.stock <= (updatedProd.minStockLevel || 10) ? 'Low Stock' : 'In Stock');
-    const finalProd = { ...updatedProd, status: computedStatus };
+    const finalProd = sanitizeProduct(updatedProd);
+    if (!finalProd) {
+      addToast('Product could not be saved: invalid details.', 'warning');
+      return;
+    }
     setProducts(prev => prev.map(p => p.id === finalProd.id ? finalProd : p));
     addToast(`Updated "${finalProd.name}"`, 'success');
   };
@@ -125,6 +147,7 @@ export function AppProvider({ children }) {
 
   // Order Status update
   const updateOrderStatus = (orderId, newStatus) => {
+    if (!ORDER_STATUSES.includes(newStatus)) return;
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     addToast(`Order ${orderId} status changed to ${newStatus}`, 'success');
   };

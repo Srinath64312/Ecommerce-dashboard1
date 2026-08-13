@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Search, Filter, LayoutGrid, List } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { sanitizeImageUrl } from '../utils/sanitize';
 
 function StockBar({ stock, minStockLevel = 10, maxStock = 100 }) {
   const pct = Math.min(100, (stock / Math.max(stock, minStockLevel * 5, maxStock)) * 100);
@@ -138,7 +139,7 @@ export default function ProductsSection() {
               <div className="product-grid">
                 {filtered.map(p => (
                   <div key={p.id} className="product-card">
-                    <img src={p.image} alt={p.name} className="product-card-img" />
+                    <img src={sanitizeImageUrl(p.image)} alt={p.name} className="product-card-img" referrerPolicy="no-referrer" />
                     <div className="product-card-body">
                       <div className="product-card-name">{p.name}</div>
                       <div className="product-card-price">${p.price.toFixed(2)}</div>
@@ -203,7 +204,7 @@ export default function ProductsSection() {
                       </td>
                       <td>
                         <div className="product-thumb">
-                          <img src={p.image} alt={p.name} className="product-thumb-img" />
+                          <img src={sanitizeImageUrl(p.image)} alt={p.name} className="product-thumb-img" referrerPolicy="no-referrer" />
                           <div>
                             <div className="product-thumb-name">{p.name}</div>
                             <div className="product-thumb-sku">{p.sku} · ★{p.rating}</div>
