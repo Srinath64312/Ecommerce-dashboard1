@@ -1,12 +1,13 @@
 /**
- * Export JSON array of objects to downloadable CSV file
- * @param {Array<Object>} data 
- * @param {string} filename 
+ * Export JSON array of objects to downloadable CSV file.
+ * Throws when there is nothing to export or the download cannot be started,
+ * so callers can surface the failure to the user.
+ * @param {Array<Object>} data
+ * @param {string} filename
  */
 export function exportToCSV(data, filename = 'export.csv') {
-  if (!data || !data.length) {
-    alert("No data available to export.");
-    return;
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('No data available to export.');
   }
 
   // Extract headers
@@ -34,12 +35,15 @@ export function exportToCSV(data, filename = 'export.csv') {
   const csvString = csvRows.join('\n');
   const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  
   const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', filename);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+
+  try {
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+  } finally {
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
 }

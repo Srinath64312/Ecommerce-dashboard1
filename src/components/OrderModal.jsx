@@ -10,7 +10,7 @@ const TIMELINE_STEPS = [
 ];
 
 export default function OrderModal() {
-  const { orderModal, setOrderModal, updateOrderStatus } = useApp();
+  const { orderModal, setOrderModal, updateOrderStatus, addToast } = useApp();
   const { isOpen, order } = orderModal;
   if (!isOpen || !order) return null;
 
@@ -20,7 +20,13 @@ export default function OrderModal() {
   function close() { setOrderModal({ isOpen: false, order: null }); }
 
   function handleStatusChange(newStatus) {
-    updateOrderStatus(order.id, newStatus);
+    try {
+      updateOrderStatus(order.id, newStatus);
+    } catch (err) {
+      console.error('Failed to update order status:', err);
+      addToast(`Could not update order: ${err.message}`, 'error');
+      return;
+    }
     setOrderModal({ isOpen: true, order: { ...order, status: newStatus } });
   }
 

@@ -1342,6 +1342,7 @@ tbody tr:hover td { background: var(--bg-card-hover); }
 }
 .toast.success { border-left: 3px solid var(--success); }
 .toast.warning { border-left: 3px solid var(--warning); }
+.toast.error   { border-left: 3px solid var(--danger); }
 .toast.info    { border-left: 3px solid var(--accent); }
 .toast-close {
   margin-left: auto;

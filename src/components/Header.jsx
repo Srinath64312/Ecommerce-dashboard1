@@ -9,7 +9,7 @@ export default function Header() {
     searchQuery, setSearchQuery,
     dateRange, setDateRange,
     lowStockProducts, products, orders,
-    activeTab, setProductModal,
+    activeTab, setProductModal, addToast,
   } = useApp();
 
   const [showNotif, setShowNotif] = useState(false);
@@ -40,20 +40,26 @@ export default function Header() {
   }, []);
 
   function handleExport() {
-    if (activeTab === 'products') {
-      exportToCSV(products.map(p => ({
-        ID: p.id, Name: p.name, Category: p.category,
-        Price: p.price, Stock: p.stock, Status: p.status
-      })), 'inventory.csv');
-    } else if (activeTab === 'orders') {
-      exportToCSV(orders.map(o => ({
-        ID: o.id, Customer: o.customer, Total: o.total,
-        Status: o.status, Date: o.date
-      })), 'orders.csv');
-    } else {
-      exportToCSV(products.map(p => ({
-        ID: p.id, Name: p.name, Stock: p.stock, Status: p.status
-      })), 'overview.csv');
+    try {
+      if (activeTab === 'products') {
+        exportToCSV(products.map(p => ({
+          ID: p.id, Name: p.name, Category: p.category,
+          Price: p.price, Stock: p.stock, Status: p.status
+        })), 'inventory.csv');
+      } else if (activeTab === 'orders') {
+        exportToCSV(orders.map(o => ({
+          ID: o.id, Customer: o.customer, Total: o.total,
+          Status: o.status, Date: o.date
+        })), 'orders.csv');
+      } else {
+        exportToCSV(products.map(p => ({
+          ID: p.id, Name: p.name, Stock: p.stock, Status: p.status
+        })), 'overview.csv');
+      }
+      addToast('Export downloaded', 'success');
+    } catch (err) {
+      console.error('CSV export failed:', err);
+      addToast(`Export failed: ${err.message}`, 'error');
     }
   }
 

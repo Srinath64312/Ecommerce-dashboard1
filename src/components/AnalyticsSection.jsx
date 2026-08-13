@@ -48,8 +48,11 @@ function DonutChart({ data, size = 180, stroke = 32 }) {
 
 /* ── Multi-bar Chart ─────────────────────────────────────────────────── */
 function MultiBarChart({ data }) {
-  const maxRev = Math.max(...data.map(d => d.revenue));
-  const maxOrd = Math.max(...data.map(d => d.orders));
+  if (!data || data.length === 0) {
+    return <div className="empty-desc">No sales data for this period</div>;
+  }
+  const maxRev = Math.max(...data.map(d => d.revenue)) || 1;
+  const maxOrd = Math.max(...data.map(d => d.orders)) || 1;
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 220, paddingBottom: 28, position: 'relative' }}>
       {data.map((d, i) => {

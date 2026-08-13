@@ -4,8 +4,22 @@ import { useApp } from '../context/AppContext';
 
 const CATEGORIES = ['Electronics', 'Computers', 'Home & Living', 'Fashion'];
 
+/**
+ * Parse a form field into a non-negative number.
+ * Returns null for invalid input so bad values surface instead of becoming 0.
+ */
+function parseNumber(raw, { required = false, integer = false, fallback = 0 } = {}) {
+  const trimmed = String(raw ?? '').trim();
+  if (trimmed === '') return required ? null : fallback;
+
+  const parsed = integer ? Number(trimmed) : parseFloat(trimmed);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  if (integer && !Number.isInteger(parsed)) return null;
+  return parsed;
+}
+
 export default function ProductModal() {
-  const { productModal, setProductModal, addProduct, updateProduct } = useApp();
+  const { productModal, setProductModal, addProduct, updateProduct, addToast } = useApp();
   const { isOpen, product } = productModal;
   const isEditing = !!product;
 
@@ -36,18 +50,47 @@ export default function ProductModal() {
 
   function handleSubmit(e) {
     e.preventDefault();
+
+    const price = parseNumber(form.price, { required: true });
+    const cost = parseNumber(form.cost, { fallback: 0 });
+    const stock = parseNumber(form.stock, { required: true, integer: true });
+    const minStockLevel = parseNumber(form.minStockLevel, { fallback: 10, integer: true });
+
+    const errors = [];
+    if (!form.name.trim()) errors.push('Product name is required');
+    if (!form.sku.trim()) errors.push('SKU is required');
+    if (price === null) errors.push('Retail price must be a number of 0 or more');
+    if (cost === null) errors.push('Unit cost must be a number of 0 or more');
+    if (stock === null) errors.push('Stock units must be a whole number of 0 or more');
+    if (minStockLevel === null) errors.push('Low stock threshold must be a whole number of 0 or more');
+
+    if (errors.length > 0) {
+      addToast(errors.join('. '), 'error');
+      return;
+    }
+
     const payload = {
       ...form,
-      price: parseFloat(form.price) || 0,
-      cost: parseFloat(form.cost) || 0,
-      stock: parseInt(form.stock, 10) || 0,
-      minStockLevel: parseInt(form.minStockLevel, 10) || 10,
+      name: form.name.trim(),
+      sku: form.sku.trim(),
+      price,
+      cost,
+      stock,
+      minStockLevel,
     };
-    if (isEditing) {
-      updateProduct({ ...product, ...payload });
-    } else {
-      addProduct(payload);
+
+    try {
+      if (isEditing) {
+        updateProduct({ ...product, ...payload });
+      } else {
+        addProduct(payload);
+      }
+    } catch (err) {
+      console.error('Failed to save product:', err);
+      addToast(`Could not save product: ${err.message}`, 'error');
+      return;
     }
+
     setProductModal({ isOpen: false, product: null });
   }
 

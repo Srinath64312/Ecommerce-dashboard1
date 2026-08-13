@@ -15,8 +15,27 @@ function getStatusBadgeClass(status) {
 }
 
 export default function OrdersSection() {
-  const { orders, searchQuery, setSearchQuery, updateOrderStatus, setOrderModal } = useApp();
+  const { orders, searchQuery, setSearchQuery, updateOrderStatus, setOrderModal, addToast } = useApp();
   const [statusTab, setStatusTab] = useState('All');
+
+  function handleExport() {
+    try {
+      exportToCSV(orders, 'orders.csv');
+      addToast('Orders exported', 'success');
+    } catch (err) {
+      console.error('CSV export failed:', err);
+      addToast(`Export failed: ${err.message}`, 'error');
+    }
+  }
+
+  function handleStatusChange(orderId, newStatus) {
+    try {
+      updateOrderStatus(orderId, newStatus);
+    } catch (err) {
+      console.error('Failed to update order status:', err);
+      addToast(`Could not update order: ${err.message}`, 'error');
+    }
+  }
 
   const tabCounts = ALL_STATUSES.reduce((acc, s) => {
     acc[s] = s === 'All' ? orders.length : orders.filter(o => o.status === s).length;
@@ -39,7 +58,7 @@ export default function OrdersSection() {
           <h1 className="section-title">Order Management</h1>
           <p className="section-subtitle">Process orders, update statuses, and review customer details.</p>
         </div>
-        <button className="btn btn-secondary" onClick={() => exportToCSV(orders, 'orders.csv')}>
+        <button className="btn btn-secondary" onClick={handleExport}>
           <Download size={15} /> Export CSV
         </button>
       </div>
@@ -123,7 +142,7 @@ export default function OrdersSection() {
                     <td>
                       <select
                         value={o.status}
-                        onChange={e => updateOrderStatus(o.id, e.target.value)}
+                        onChange={e => handleStatusChange(o.id, e.target.value)}
                         className={`status-select badge ${getStatusBadgeClass(o.status)}`}
                       >
                         {['Pending','Processing','Shipped','Delivered','Cancelled'].map(s => (

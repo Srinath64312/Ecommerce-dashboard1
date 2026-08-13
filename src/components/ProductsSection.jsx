@@ -29,7 +29,7 @@ function StatusBadge({ status }) {
 }
 
 export default function ProductsSection() {
-  const { products, searchQuery, setSearchQuery, deleteProduct, setProductModal, updateProduct } = useApp();
+  const { products, searchQuery, setSearchQuery, deleteProduct, setProductModal, updateProduct, addToast } = useApp();
   const [catFilter, setCatFilter] = useState('All');
   const [stockFilter, setStockFilter] = useState('All');
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
@@ -57,14 +57,46 @@ export default function ProductsSection() {
   }
 
   function changeStock(p, d) {
-    updateProduct({ ...p, stock: Math.max(0, p.stock + d) });
+    try {
+      updateProduct({ ...p, stock: Math.max(0, p.stock + d) });
+    } catch (err) {
+      console.error('Failed to adjust stock:', err);
+      addToast(`Could not update stock: ${err.message}`, 'error');
+    }
+  }
+
+  function handleDelete(p) {
+    if (!window.confirm(`Delete "${p.name}"?`)) return;
+    try {
+      deleteProduct(p.id);
+      setSelected(prev => {
+        if (!prev.has(p.id)) return prev;
+        const next = new Set(prev);
+        next.delete(p.id);
+        return next;
+      });
+    } catch (err) {
+      console.error('Failed to delete product:', err);
+      addToast(`Could not delete product: ${err.message}`, 'error');
+    }
   }
 
   function handleBulkDelete() {
     if (!selected.size) return;
-    if (window.confirm(`Delete ${selected.size} selected product(s)?`)) {
-      [...selected].forEach(id => deleteProduct(id));
-      setSelected(new Set());
+    if (!window.confirm(`Delete ${selected.size} selected product(s)?`)) return;
+
+    const failed = [];
+    [...selected].forEach(id => {
+      try {
+        deleteProduct(id);
+      } catch (err) {
+        console.error(`Failed to delete product ${id}:`, err);
+        failed.push(id);
+      }
+    });
+    setSelected(new Set(failed));
+    if (failed.length > 0) {
+      addToast(`Could not delete ${failed.length} product(s): ${failed.join(', ')}`, 'error');
     }
   }
 
@@ -150,8 +182,7 @@ export default function ProductsSection() {
                         onClick={() => setProductModal({ isOpen: true, product: p })}>
                         <Edit2 size={13} /> Edit
                       </button>
-                      <button className="btn btn-danger btn-sm"
-                        onClick={() => window.confirm(`Delete "${p.name}"?`) && deleteProduct(p.id)}>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>
                         <Trash2 size={13} />
                       </button>
                     </div>
@@ -230,7 +261,7 @@ export default function ProductsSection() {
                           </button>
                           <button className="btn btn-icon" style={{ width: 30, height: 30, color: 'var(--danger)' }}
                             title="Delete product"
-                            onClick={() => window.confirm(`Delete "${p.name}"?`) && deleteProduct(p.id)}>
+                            onClick={() => handleDelete(p)}>
                             <Trash2 size={13} />
                           </button>
                         </div>

@@ -76,8 +76,11 @@ function KpiCard({ label, value, prefix = '', suffix = '', trend, trendDir, colo
 }
 
 // Bar Chart
-function BarChart({ data, dateRange }) {
-  const maxRev = Math.max(...data.map(d => d.revenue));
+function BarChart({ data }) {
+  if (!data || data.length === 0) {
+    return <div className="empty-desc">No sales data for this period</div>;
+  }
+  const maxRev = Math.max(...data.map(d => d.revenue)) || 1;
   return (
     <div className="bar-chart">
       {data.map((d, i) => {

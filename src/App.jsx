@@ -10,9 +10,10 @@ import CustomersSection from './components/CustomersSection';
 import ProductModal from './components/ProductModal';
 import OrderModal from './components/OrderModal';
 import ToastContainer from './components/ToastContainer';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function MainAppContent() {
-  const { activeTab, sidebarCollapsed } = useApp();
+  const { activeTab, sidebarCollapsed, addToast } = useApp();
 
   // Map of tab content — keyed so React unmounts/mounts for transition
   const sections = {
@@ -29,7 +30,12 @@ function MainAppContent() {
       <div className={`main-wrapper${sidebarCollapsed ? ' collapsed' : ''}`}>
         <Header />
         <main className="content-body" key={activeTab}>
-          {sections[activeTab]}
+          <ErrorBoundary
+            label={activeTab}
+            onError={() => addToast('This section failed to load. See the console for details.', 'error')}
+          >
+            {sections[activeTab]}
+          </ErrorBoundary>
         </main>
       </div>
       <ProductModal />
@@ -41,8 +47,10 @@ function MainAppContent() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <MainAppContent />
-    </AppProvider>
+    <ErrorBoundary label="App">
+      <AppProvider>
+        <MainAppContent />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
